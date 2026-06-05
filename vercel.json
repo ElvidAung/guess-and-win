@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/server.js" }
+  "routes": [
+    { "src": "/api/github-webhook", "methods": ["POST"], "dest": "/server.js" }
   ]
 }
