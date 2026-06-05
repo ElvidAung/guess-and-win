@@ -11,29 +11,32 @@ function verifySignature(req, bodyBuffer) {
     return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
 }
 
-// Vercel Serverless Function Handler
 module.exports = async (req, res) => {
-    // CRITICAL: Force it to only allow POST requests from GitHub
+    // Only accept POST requests from GitHub Webhooks
     if (req.method !== 'POST') {
         res.setHeader('Allow', 'POST');
         return res.status(405).send(`Method ${req.method} Not Allowed. Use POST.`);
     }
 
-    // Capture raw body for signature verification
+    // Read the incoming data stream body
     let rawBody = '';
     req.on('data', chunk => { rawBody += chunk; });
-    
     await new Promise(resolve => req.on('end', resolve));
 
+    // Verify the webhook secret password matches
     if (!verifySignature(req, rawBody)) {
         return res.status(401).send('Mismatched or invalid HMAC token signature.');
     }
 
-    const payload = JSON.parse(rawBody || '{}');
-    const githubEvent = req.headers['x-github-event'];
-    
-    let logMessage = `GitHub Event [${githubEvent}]: Action triggered by ${payload.sender?.login}`;
-    console.log("Saved Event:", logMessage); 
-
-    return res.status(200).send('Webhook captured successfully.');
+    try {
+        const payload = JSON.parse(rawBody || '{}');
+        const githubEvent = req.headers['x-hub-signature-256'] ? req.headers['x-github-event'] : 'unknown';
+        
+        console.log(`Successfully received ${githubEvent} event from GitHub!`);
+        
+        // Return a successful response status back to GitHub
+        return res.status(200).json({ success: true, message: "Webhook captured successfully." });
+    } catch (error) {
+        return res.status(500).json({ error: "Failed to parse webhook payload data." });
+    }
 };
